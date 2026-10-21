@@ -8,6 +8,7 @@ next week's plan.
 - **Model:** `gpt-6-luna` through Portkey (course key `PORTKEY_API_KEY`)
 - **Stack:** Python 3.10+, Dash, SQLite, OpenAI Responses API
 - **Report and slides:** `report.html` and `slides.html` in this folder (open by double-clicking)
+- **AI use:** built with Claude Code as the coding assistant; every prompt is logged in `AI_prompts.md`
 
 ---
 

@@ -1,0 +1,39 @@
+{
+  "_note": "Fictional sample candidate for testing. Dates are stored as day offsets from today so the demo never goes stale. Contacts and notes are made up.",
+  "profile": {
+    "name": "Alex Chen (sample candidate)",
+    "school": "Yale School of Management, MBA Class of 2028",
+    "target_role": "Investment Banking Summer Associate",
+    "target_groups": "M&A, Consumer & Retail coverage, Restructuring",
+    "background": "Career switcher: 4 years in corporate FP&A at a consumer packaged goods company.",
+    "resume": "EXPERIENCE\nNorthfield Brands (consumer packaged goods), Senior Financial Analyst, FP&A, 2022-2026\n- Built the 3-statement annual operating plan for a $1.1B snacks division; presented to the CFO quarterly\n- Led financial diligence support for a $140M bolt-on acquisition of a regional beverage brand; built the synergy model (cost synergies of $9M identified)\n- Cut the monthly close reporting cycle from 8 days to 5 by automating variance reports in Python and SQL\nNorthfield Brands, Financial Analyst, 2020-2022\n- Owned pricing and promotion analysis for 40 SKUs; a price-pack change raised gross margin 120 bps\n\nEDUCATION\nYale School of Management, MBA candidate 2028; Finance Club (Investment Banking Lead)\nUniversity of Michigan, BBA, Finance, 2020\n\nOTHER\nCFA Level I passed; volunteer tax preparer (VITA), 3 seasons"
+  },
+  "applications": [
+    {"bank": "Evercore", "group": "M&A / Advisory", "office": "New York", "deadline_in_days": 5, "status": "In progress", "referral": "Priya Natarajan (VP)", "notes": "Cover letter optional; upload resume + 2 short essays"},
+    {"bank": "Goldman Sachs", "group": "Investment Banking Division", "office": "New York", "deadline_in_days": 9, "status": "Not started", "referral": "", "notes": "HireVue after application"},
+    {"bank": "Moelis & Company", "group": "Restructuring & Capital Markets", "office": "New York", "deadline_in_days": 12, "status": "Not started", "referral": "Daniel Ortiz (Associate)", "notes": ""},
+    {"bank": "J.P. Morgan", "group": "Consumer & Retail", "office": "New York", "deadline_in_days": 16, "status": "Not started", "referral": "", "notes": ""},
+    {"bank": "Lazard", "group": "M&A", "office": "New York", "deadline_in_days": -3, "status": "Submitted", "referral": "Sarah Kim (Director)", "notes": "Submitted with referral"},
+    {"bank": "Centerview Partners", "group": "M&A", "office": "New York", "deadline_in_days": 21, "status": "Not started", "referral": "", "notes": "Very small class; need strong 'why Centerview'"}
+  ],
+  "coffee_chats": [
+    {"contact": "Priya Natarajan", "bank": "Evercore", "group": "Consumer & Retail M&A", "title": "Vice President", "days_from_today": -6, "thank_you_sent": 1, "follow_up_in_days": 10,
+     "notes": "SOM '19 alum. Said the team runs lean: associates get real client exposure early. Talked about sell-side processes for founder-owned consumer brands. Advice: know my own FP&A synergy work cold and be ready for an accretion/dilution question. Liked that I'd sat on the corporate side of a deal. Email: priya.n@example.com"},
+    {"contact": "Marcus Hale", "bank": "Evercore", "group": "Restructuring", "title": "Associate", "days_from_today": -2, "thank_you_sent": 0, "follow_up_in_days": 14,
+     "notes": "Restructuring team busy with liability-management transactions. Said interviews test the debt side harder: know how leverage and interest coverage work. Recommended reading about distressed exchanges. Very candid about hours."},
+    {"contact": "Daniel Ortiz", "bank": "Moelis & Company", "group": "Restructuring & Capital Markets", "title": "Associate", "days_from_today": -9, "thank_you_sent": 1, "follow_up_in_days": 5,
+     "notes": "Former Army officer, also a career switcher. Said Moelis values ownership and being a generalist early. Told me to prepare a crisp 'why banking now' because the story matters for switchers. Offered to refer me."},
+    {"contact": "Sarah Kim", "bank": "Lazard", "group": "M&A", "title": "Director", "days_from_today": -20, "thank_you_sent": 1, "follow_up_in_days": null,
+     "notes": "Talked about Lazard's advisory-only model and long client relationships. Asked me to walk her through a DCF on the spot - I was slow on terminal value. Referred me after the chat."},
+    {"contact": "Jordan Lee", "bank": "Goldman Sachs", "group": "Consumer Retail Group", "title": "Vice President", "days_from_today": 3, "thank_you_sent": 0, "follow_up_in_days": null,
+     "notes": "Upcoming chat (scheduled). Met briefly at the SOM finance club trek. Wants to hear why I'm switching from FP&A."}
+  ],
+  "attempts": [
+    {"days_from_today": -8, "source": "technicals", "question_id": "DCF-3", "category": "DCF", "question": "What are the two ways to calculate terminal value?", "overall": 2},
+    {"days_from_today": -8, "source": "technicals", "question_id": "ACC-3", "category": "Accounting", "question": "Depreciation goes up by $10. Walk me through the three statements, assuming a 40% tax rate.", "overall": 4},
+    {"days_from_today": -7, "source": "technicals", "question_id": "MA-2", "category": "M&A", "question": "Acquirer trades at a 20x P/E and buys a target for a purchase P/E of 10x in an all-stock deal. Is it accretive or dilutive? Why?", "overall": 2},
+    {"days_from_today": -6, "source": "technicals", "question_id": "EV-1", "category": "Enterprise Value", "question": "What is the difference between enterprise value and equity value?", "overall": 4},
+    {"days_from_today": -5, "source": "behavioral", "question_id": "BEH-1", "category": "Behavioral", "question": "Walk me through your resume.", "overall": 3},
+    {"days_from_today": -4, "source": "technicals", "question_id": "LBO-3", "category": "LBO", "question": "What are the main drivers of returns in an LBO?", "overall": 3}
+  ]
+}

@@ -1,0 +1,19 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# local data (created on first run)
+data/*.db
+data/*.db-journal
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# tooling
+.claude/
+.vscode/
+.DS_Store

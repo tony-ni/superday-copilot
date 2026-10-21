@@ -14,7 +14,7 @@ from superday.ui import icon
 
 db.init()
 
-from superday.pages import applications, behavioral, chats, dashboard, deals, mock, technicals, usage  # noqa: E402
+from superday.pages import applications, behavioral, chats, dashboard, deals, mock, study, technicals, usage  # noqa: E402
 
 PAGES = {
     "/": ("Dashboard", dashboard, "home"),
@@ -25,9 +25,10 @@ PAGES = {
     "/chats": ("Coffee Chats", chats, "coffee"),
     "/applications": ("Applications", applications, "list"),
     "/usage": ("Usage & Safety", usage, "shield"),
+    "/study": ("User Test", study, "user"),
 }
 NAV_SECTIONS = [("Plan", ["/"]), ("Prepare", ["/mock", "/technicals", "/behavioral", "/deals"]),
-                ("Track", ["/chats", "/applications"]), ("Admin", ["/usage"])]
+                ("Track", ["/chats", "/applications"]), ("Admin", ["/usage", "/study"])]
 
 app = Dash(__name__, title="Superday Copilot", suppress_callback_exceptions=True, update_title=None)
 server = app.server

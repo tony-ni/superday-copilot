@@ -13,6 +13,7 @@ import base64
 import html as H
 import io
 import json
+import os
 import sqlite3
 import statistics
 from pathlib import Path
@@ -21,7 +22,8 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 SHOTS = ROOT / "docs" / "screenshots"
-DB = ROOT / "data" / "superday.db"
+DB = Path(os.getenv("SUPERDAY_DB", str(ROOT / "data" / "superday.db")))
+OUT_DIR = Path(os.getenv("SUPERDAY_DOCS_OUT", str(ROOT)))
 PRICE = {"input": 0.10, "cached_input": 0.01, "cache_write": 0.125, "output": 0.50}
 
 AUTHOR = "Tony Ni"
@@ -100,6 +102,21 @@ mock_calls = [c for c in calls if c["run_id"] == mock["run_id"]]
 mock_trace = [dict(r) for r in con.execute("SELECT * FROM trace_events WHERE run_id=? ORDER BY id", (mock["run_id"],))]
 mock_tools = [t for t in mock_trace if t["kind"] == "tool_call"]
 deals = [json.loads(r["result_json"]) for r in con.execute("SELECT result_json FROM deals ORDER BY id")]
+study = []
+try:
+    for i, r in enumerate(con.execute("SELECT * FROM study_sessions WHERE completed = 1 ORDER BY id"), 1):
+        d = dict(r)
+        d["label"], d["ratings"] = f"P{i}", json.loads(d["ratings_json"] or "{}")
+        study.append(d)
+except sqlite3.OperationalError:  # older database without the table
+    study = []
+
+
+def mmss(secs):
+    m, sec = divmod(int(round(secs)), 60)
+    return f"{m}:{sec:02d}"
+
+
 voice = None
 for r in con.execute("SELECT feedback_json FROM attempts WHERE source='technicals' AND question_id='EV-3' ORDER BY id DESC"):
     fb = json.loads(r["feedback_json"] or "{}")
@@ -618,11 +635,42 @@ scoring fix (11/12 before). Deal prep facts are verified against their source (6
 Evercore?" answer cites two specific things the candidate's Evercore contacts said, which a generic tool can't do.</p>
 <p><b>Reach.</b> It runs on a laptop with the course key and three Python packages, so any first-year recruiting for banking
 could use it. At 10,000 users the model bill would be about {usd(monthly * 10_000, 0)} a month.</p>
-<div class="todo"><b>TO DO before submission: real-user evidence (required for full Impact points).</b> Ask 2–3 classmates
+{user_evidence()}
+"""
+
+
+def user_evidence():
+    """Real user-test results from the User Test page, or the TO DO box if none were collected."""
+    pairs = [r for r in study if r["hand_seconds"] and r["app_seconds"]]
+    if not pairs:
+        return """<div class="todo"><b>TO DO before submission: real-user evidence (required for full Impact points).</b> Ask 2–3 classmates
 recruiting for banking to (a) prepare a "Why [bank]?" answer and coffee-chat questions for a real upcoming chat by hand and
 time it, then do the same with the app, and (b) run one mock interview and rate the feedback (1–5) and its usefulness.
 Paste the table and one quote here, with a screenshot. Suggested table: <i>User · task · minutes by hand · minutes with app
 · feedback quote</i>.</div>
+"""
+    med_h = statistics.median(r["hand_seconds"] for r in pairs)
+    med_a = statistics.median(r["app_seconds"] for r in pairs)
+    med_saved = statistics.median(1 - r["app_seconds"] / r["hand_seconds"] for r in pairs)
+    avg = lambda k: statistics.mean(r["ratings"][k] for r in study)  # noqa: E731
+    rows = [[r["label"], esc(r["background"]), "by hand" if r["first_task"] == "hand" else "with app",
+             mmss(r["hand_seconds"]), mmss(r["app_seconds"]), f"{1 - r['app_seconds'] / r['hand_seconds']:.0%}",
+             f"{r['ratings']['hand_quality']} / {r['ratings']['app_quality']}", r["ratings"]["useful"],
+             esc(r["ratings"]["would_use"])] for r in pairs]
+    quotes = "".join(f"<p class='callout'>&ldquo;{esc(r['quote'])}&rdquo; <span class='small'>({r['label']}, "
+                     f"{esc(r['background'])})</span></p>" for r in study if r["consent"] and r["quote"])
+    return f"""
+<h3>Real-user test (User Test page)</h3>
+<p>{len(pairs)} classmate(s) prepared for the same coffee chat (a 30-second intro and three questions for a Goldman Sachs VP,
+using the sample candidate's resume and notes) once by hand and once with the app, which drafted the prep and was then edited
+until the participant would use it. The app timed both tasks; the order alternated between participants. Median time went from
+<b>{mmss(med_h)}</b> by hand to <b>{mmss(med_a)}</b> with the app (median saving <b>{med_saved:.0%}</b>). Self-rated quality averaged
+{avg('hand_quality'):.1f}/5 by hand vs {avg('app_quality'):.1f}/5 with the app; usefulness for their own recruiting averaged
+{avg('useful'):.1f}/5 and ease of use {avg('ease'):.1f}/5.</p>
+{table(["ID", "Background", "First task", "By hand", "With app", "Time saved", "Quality hand / app", "Useful", "Would use"], rows, (3, 4, 5))}
+{quotes}
+<p class="small">Small sample of classmates, not a controlled study: same scenario for everyone, ratings are self-reported,
+and the time with the app includes waiting for the AI.</p>
 """
 
 
@@ -719,6 +767,19 @@ SLIDE_CSS = """
 """
 
 
+def slide_evidence():
+    pairs = [r for r in study if r["hand_seconds"] and r["app_seconds"]]
+    if not pairs:
+        return ('<p style="font-size:.7em;background:#fff4dc;border:2px dashed #b07d00;padding:10px 14px;border-radius:10px">'
+                "TO DO: add real-user results (classmates' before/after minutes and a quote).</p>")
+    med_h = statistics.median(r["hand_seconds"] for r in pairs)
+    med_a = statistics.median(r["app_seconds"] for r in pairs)
+    q = next((r for r in study if r["consent"] and r["quote"]), None)
+    quote = f"<p style='font-size:.7em'>&ldquo;{esc(q['quote'])}&rdquo; <span class='small'>({q['label']})</span></p>" if q else ""
+    return (f"<p style='font-size:.8em'><b>User test, n={len(pairs)}:</b> coffee-chat prep took a median of <b>{mmss(med_h)}</b> "
+            f"by hand vs <b>{mmss(med_a)}</b> with the app.</p>{quote}")
+
+
 def build_slides():
     s = []
     s.append(f"""<section><div class="title-slide"><div class="lbl" style="color:#e8f0fa">{COURSE}</div>
@@ -776,8 +837,7 @@ then debriefed: <b>{esc(mock_sum['debrief']['hire_signal'])}</b>, {mock['overall
 <div><div class="big">12/12</div><div class="lbl">labeled answers graded correctly</div></div>
 <div><div class="big">{latency_v1['chatprep']['avg_latency_s']:.0f}s</div><div class="lbl">coffee-chat prep</div></div>
 <div><div class="big">66/66</div><div class="lbl">deal facts verified</div></div></div>
-<p style="font-size:.7em;background:#fff4dc;border:2px dashed #b07d00;padding:10px 14px;border-radius:10px">
-TO DO: add real-user results (classmates' before/after minutes and a quote).</p></section>""")
+{slide_evidence()}</section>""")
     s.append("""<section><div class="bar"></div><h2>Limits and next steps</h2>
 <div class="cols"><div><h3 style="font-size:.9em">Limits</h3><ul style="font-size:.68em"><li>Voice needs Chrome/Edge; delivery = time, pace, fillers (not tone)</li>
 <li>Grader validated on 12 labeled technical answers</li><li>Fixed 52-question bank; no live market data</li><li>Local, single-user</li></ul></div>
@@ -798,7 +858,7 @@ TO DO: add real-user results (classmates' before/after minutes and a quote).</p>
 
 
 if __name__ == "__main__":
-    (ROOT / "report.html").write_text(build_report(), encoding="utf-8")
-    (ROOT / "slides.html").write_text(build_slides(), encoding="utf-8")
-    print(f"report.html {(ROOT / 'report.html').stat().st_size // 1024} KB, slides.html {(ROOT / 'slides.html').stat().st_size // 1024} KB")
+    (OUT_DIR / "report.html").write_text(build_report(), encoding="utf-8")
+    (OUT_DIR / "slides.html").write_text(build_slides(), encoding="utf-8")
+    print(f"report.html {(OUT_DIR / 'report.html').stat().st_size // 1024} KB, slides.html {(OUT_DIR / 'slides.html').stat().st_size // 1024} KB")
     print(f"monthly ${monthly:.4f} (no cache ${monthly_nc:.4f}); mock ${per_kind['mock']['cost']:.5f}; effort ratio {effort_ratio:.2f}")

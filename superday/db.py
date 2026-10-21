@@ -35,6 +35,10 @@ CREATE TABLE IF NOT EXISTS llm_calls (
     reasoning_tokens INTEGER, latency_ms INTEGER, cost_usd REAL, status TEXT);
 CREATE TABLE IF NOT EXISTS trace_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, run_id TEXT, agent TEXT, kind TEXT, name TEXT, content TEXT);
+CREATE TABLE IF NOT EXISTS study_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, participant TEXT, background TEXT, consent INTEGER DEFAULT 0,
+    first_task TEXT, hand_start REAL, hand_seconds REAL, app_start REAL, app_seconds REAL, hand_text TEXT, app_text TEXT,
+    ratings_json TEXT, quote TEXT, improve TEXT, completed INTEGER DEFAULT 0);
 """
 
 

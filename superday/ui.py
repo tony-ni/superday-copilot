@@ -36,7 +36,8 @@ def page(title: str, subtitle: str, *children, icon_name: str | None = None):
 
 def card(title, *children, **kw):
     cls = kw.pop("className", "")
-    return html.Div([html.H3(title) if title else None, *children], className=f"card {cls}".strip(), **kw)
+    # `is not None`: an empty Dash component (e.g. a Span filled later by a callback) is falsy but must still render.
+    return html.Div([html.H3(title) if title is not None else None, *children], className=f"card {cls}".strip(), **kw)
 
 
 def kpi(label, value, sub="", icon_name=None):

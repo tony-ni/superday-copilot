@@ -74,6 +74,22 @@ coffee chats and practice history already loaded.
    it. The second sample hides an instruction to the AI, which gets quarantined.
 6. **Usage & Safety:** real token counts and cost for every call, step-by-step agent traces and the safety guard log.
 
+## Collecting real user feedback (User Test page)
+
+**Admin → User Test** runs a 15-minute before/after test with a classmate on your laptop:
+
+1. Enter their name or initials (stays on this laptop), pick their background, and tick consent only if they agree
+   to be quoted anonymously. Click **Start next participant**.
+2. They prepare for the same coffee chat twice (a 30-second intro and three questions for a Goldman Sachs VP, using
+   the sample candidate's resume and notes): **by hand**, and **with the app**, which drafts the prep that they then
+   edit until they'd use it. The app times both tasks, and the order alternates between participants.
+3. They answer a 1-minute survey. Results appear under **Results so far**; **Download CSV** exports them.
+
+Results stay in your local database (`data/superday.db`, never committed). Running `python scripts/build_docs.py`
+puts the anonymous results (P1, P2, …, median times, ratings, and quotes only from people who agreed) into the
+report's Impact section and slide 9, replacing the TO DO box. The test needs the sample data loaded
+(Usage & Safety → Reset sample data); "Reset sample data" does not delete user-test results.
+
 ## Test data and switching datasets
 
 - `data/sample_profile.json`: the small fictional test dataset loaded on first run. Dates are stored as offsets
@@ -98,6 +114,8 @@ Optional scripts (these make real model calls, each costing a few cents at most)
 
 - `python scripts/benchmark.py`: grader accuracy and cost by reasoning effort, the subtle-injection test and the
   deal fact-check rate. Writes `docs/benchmark_results.json`.
+- `python scripts/study_test.py 8052`: browser test of the User Test page with two simulated participants. Run it
+  against a copy of the database (`SUPERDAY_DB=copy.db`, `PORT=8052`) so test data never mixes with real results.
 - `python scripts/voice_test.py`: browser test of the voice feature with a fake speech recognizer (no microphone
   needed). Needs the app running.
 - `python scripts/e2e_capture.py`: drives the running app in headless Chromium and saves screenshots to

@@ -334,3 +334,15 @@ details summary { cursor: pointer; color: var(--yale); font-weight: 600; padding
 .ico-target { --i: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%279%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%275%27%2F%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%271%27%2F%3E%3C%2Fsvg%3E"); }
 .ico-user { --i: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%278%27%20r%3D%274%27%2F%3E%3Cpath%20d%3D%27M4%2021a8%208%200%200%201%2016%200%27%2F%3E%3C%2Fsvg%3E"); }
 .ico-chart { --i: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M4%2020V10M10%2020V4M16%2020v-7M22%2020H2%27%2F%3E%3C%2Fsvg%3E"); }
+
+/* ---------- User test ---------- */
+.study-steps { margin: 0 0 6px; padding-left: 20px; color: var(--muted); }
+.study-steps li { margin-bottom: 4px; }
+.study-task { font-size: 15.5px; font-weight: 600; color: var(--yale); background: var(--yale-light); border-radius: 10px; padding: 10px 14px; }
+.study-scenario h4 { margin: 10px 0 4px; color: var(--yale); font-size: 14px; }
+.study-pre { white-space: pre-wrap; font-family: inherit; font-size: 13px; background: var(--yale-lighter); border: 1px solid var(--line);
+             border-radius: 8px; padding: 10px; max-height: 260px; overflow: auto; }
+.study-clock { font-size: 20px; font-weight: 750; color: var(--yale); font-variant-numeric: tabular-nums; }
+.study-text { min-height: 230px; }
+.study-radio label { margin-right: 14px; cursor: pointer; }
+.study-quote { margin: 10px 0 0; padding: 8px 14px; border-left: 4px solid var(--yale-2); background: var(--yale-lighter); border-radius: 0 8px 8px 0; }

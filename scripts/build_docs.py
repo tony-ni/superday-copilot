@@ -25,7 +25,7 @@ DB = ROOT / "data" / "superday.db"
 PRICE = {"input": 0.10, "cached_input": 0.01, "cache_write": 0.125, "output": 0.50}
 
 AUTHOR = "Tony Ni"
-REPO_URL = "https://github.com/REPLACE-WITH-YOUR-USERNAME/superday-copilot"  # TODO: replace after pushing
+REPO_URL = "https://github.com/tony-ni/superday-copilot"
 COURSE = "MGT 409 · AI Foundations · Fall 2026"
 
 # ---------------------------------------------------------------------------

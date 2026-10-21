@@ -16,7 +16,7 @@ next week's plan.
 **1. Get the code**
 
 ```bash
-git clone <this-repo-url> superday-copilot
+git clone https://github.com/tony-ni/superday-copilot.git
 cd superday-copilot
 ```
 

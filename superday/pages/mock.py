@@ -9,7 +9,9 @@ import plotly.graph_objects as go
 from dash import Input, Output, State, callback, clientside_callback, ctx, dcc, html, no_update
 
 from .. import agents, db, llm, tools
-from ..ui import YALE, YALE_2, alert, badge, bullets, card, error_box, feedback_panel, fig_layout, loading, page, score_circle
+from ..delivery import delivery_stats, target_seconds
+from ..ui import (VOICE_NOTE, YALE, YALE_2, alert, badge, bullets, card, empty_state, error_box, feedback_panel,
+                  fig_layout, icon, kbd, loading, page, page_icon, score_circle, voice_controls)
 
 COMMON_BANKS = ["Goldman Sachs", "Morgan Stanley", "J.P. Morgan", "Bank of America", "Citi", "Evercore", "Lazard",
                 "Centerview Partners", "Moelis & Company", "PJT Partners", "Perella Weinberg", "Guggenheim",
@@ -43,9 +45,14 @@ def layout():
         ], className="grid grid-3"),
         dcc.Checklist([{"label": " Show feedback after each answer (turn off for a realistic Superday)", "value": "fb"}],
                       ["fb"], id="mock-fb", style={"marginTop": "12px"}),
-        html.Div([html.Button("Start mock interview", id="mock-start", className="btn")], className="btn-row"),
-        html.Div("The Interviewer agent reads your coffee-chat notes for this bank and your weakest topics, then picks "
-                 "questions from the bank of reference-graded questions.", className="hint", style={"marginTop": "8px"}),
+        html.Div([html.Button([icon("play"), " Start mock interview"], id="mock-start", className="btn btn-lg")],
+                 className="btn-row"),
+        html.Div([
+            html.Div([html.B("1"), html.Span("The Interviewer reads your coffee-chat notes for this bank and your weakest topics.")]),
+            html.Div([html.B("2"), html.Span("Answer each question by voice or by typing. The Grader scores it against a "
+                                             "reference answer and may ask a follow-up.")]),
+            html.Div([html.B("3"), html.Span("Get a Superday-style debrief with a hire signal and what to drill next.")]),
+        ], className="steps"),
         id="mock-setup",
     )
     live = html.Div([
@@ -56,13 +63,18 @@ def layout():
             card(None,
                  html.Div(id="mock-progress", style={"marginBottom": "10px"}),
                  html.Div(id="mock-question"),
-                 html.Label("Your answer (type it as you would say it)", className="field"),
-                 dcc.Textarea(id="mock-answer", style={"height": "190px"}, placeholder="Type your answer..."),
+                 html.Div([html.Label("Your answer", className="field", htmlFor="mock-answer"),
+                           voice_controls("mock", "mock-answer")], className="answer-head"),
+                 dcc.Textarea(id="mock-answer", className="answer-box",
+                              placeholder="Answer out loud with the mic, or type what you would say…"),
                  html.Div([
-                     html.Button("Submit answer", id="mock-submit", className="btn"),
+                     html.Button([icon("send"), " Submit answer"], id="mock-submit", className="btn"),
                      html.Button("End interview now", id="mock-end", className="btn btn-secondary"),
+                     html.Span([kbd("Ctrl"), " + ", kbd("Enter"), " to submit"], className="hint shortcut"),
                  ], className="btn-row"),
-                 loading(html.Div(id="mock-busy", style={"minHeight": "24px", "marginTop": "8px"}))),
+                 html.Div(VOICE_NOTE, className="hint voice-note"),
+                 loading(html.Div(id="mock-busy", style={"minHeight": "24px", "marginTop": "8px"}),
+                         "The Grader is scoring your answer, then the Interviewer moves on…")),
             html.Div(id="mock-last-fb"),
         ]),
     ], className="grid grid-2", id="mock-live", style={"display": "none"})
@@ -70,9 +82,10 @@ def layout():
     return page(
         "Mock Interview",
         "A bank-specific mock interview that remembers your networking and your weak spots.",
-        dcc.Store(id="mock-state"), html.Div(id="mock-scroll", style={"display": "none"}),
-        setup, live,
-        loading(html.Div(id="mock-summary")),
+        page_icon("mic"),
+        dcc.Store(id="mock-state"), dcc.Store(id="mock-voice"), html.Div(id="mock-scroll", style={"display": "none"}),
+        loading(html.Div(setup), "The Interviewer is reading your notes and choosing questions…"), live,
+        loading(html.Div(id="mock-summary"), "The Interviewer is writing your debrief…"),
         card("Past mock interviews", _history()),
     )
 
@@ -80,7 +93,7 @@ def layout():
 def _history():
     rows = db.query("SELECT * FROM mock_sessions WHERE status = 'finished' ORDER BY started DESC LIMIT 10")
     if not rows:
-        return html.Div("No finished interviews yet.", className="empty")
+        return empty_state("history", "No finished interviews yet", "Your debriefs and hire signals will be listed here.")
     body = []
     for r in rows:
         s = json.loads(r["summary_json"] or "{}")
@@ -96,31 +109,33 @@ def _history():
 # ---------------------------------------------------------------------------
 @callback(
     Output("mock-state", "data"), Output("mock-answer", "value"), Output("mock-busy", "children"),
+    Output("mock-voice", "data"), Output("mock-voice-status", "children"),
     Input("mock-start", "n_clicks"), Input("mock-submit", "n_clicks"), Input("mock-end", "n_clicks"),
     State("mock-bank", "value"), State("mock-group", "value"), State("mock-n", "value"), State("mock-fb", "value"),
-    State("mock-answer", "value"), State("mock-state", "data"),
+    State("mock-answer", "value"), State("mock-state", "data"), State("mock-voice", "data"),
     prevent_initial_call=True,
     running=[(Output("mock-submit", "disabled"), True, False), (Output("mock-start", "disabled"), True, False)],
 )
-def step(_start, _submit, _end, bank, group, n, fb, answer, state):
+def step(_start, _submit, _end, bank, group, n, fb, answer, state, voice):
     trigger = ctx.triggered_id
+    keep = (no_update, no_update)
     try:
         if trigger == "mock-start":
-            return _start_session(bank, group or "", int(n), bool(fb)), "", ""
+            return _start_session(bank, group or "", int(n), bool(fb)), "", "", None, ""
         if not state or state.get("status") != "active":
-            return no_update, no_update, ""
+            return no_update, no_update, "", *keep
         if trigger == "mock-submit":
             if not (answer or "").strip():
-                return no_update, no_update, alert("Type an answer first.", "warning")
-            state = _submit_answer(state, answer)
+                return no_update, no_update, alert("Answer first: use the mic or type it.", "warning"), *keep
+            state = _submit_answer(state, answer, voice)
             if state["pending"] is None:
                 state = _finish(state)
-            return state, "", ""
+            return state, "", "", None, ""
         if trigger == "mock-end":
-            return _finish(state), "", ""
+            return _finish(state), "", "", None, ""
     except llm.AIError as exc:
-        return no_update, no_update, error_box(exc)
-    return no_update, no_update, ""
+        return no_update, no_update, error_box(exc), *keep
+    return no_update, no_update, "", *keep
 
 
 def _start_session(bank, group, n, show_fb):
@@ -135,10 +150,11 @@ def _start_session(bank, group, n, show_fb):
             "pending": {**first, "follow_up": False}, "turns": [], "follow_ups": 0}
 
 
-def _submit_answer(state, answer):
+def _submit_answer(state, answer, voice=None):
     q = state["pending"]
     ref = tools.question_by_id(q["id"])
-    grade = agents.grade_answer(ref, answer, state["run_id"], asked_as=q["asked"])
+    grade = agents.grade_answer(ref, answer, state["run_id"], asked_as=q["asked"],
+                                delivery=delivery_stats(answer, voice, ref["id"]))
     agents.save_attempt("mock", ref, q["asked"], answer, grade, state["session_id"])
     state["turns"].append({**q, "answer": answer, "grade": grade})
     if not q["follow_up"]:
@@ -197,11 +213,22 @@ def render(state):
     question = progress = last_fb = summary = None
     if active and state["pending"]:
         p = state["pending"]
-        question = html.Div([html.Div(f"{p['category']} · {p['id']} · {'follow-up' if p['follow_up'] else p['why']}", className="meta"),
-                             p["asked"]], className="question-box")
+        lo, hi = target_seconds(p["id"])
+        question = html.Div([
+            html.Div([html.Div(f"{p['category']} · {p['id']} · {'follow-up' if p['follow_up'] else p['why']}", className="meta"),
+                      html.Div(p["asked"], className="q-text")], id="mock-qtext"),
+            html.Div([html.Button([icon("volume"), " Read aloud"], className="btn-ghost", type="button",
+                                  **{"data-speak": "mock-qtext"}),
+                      html.Span(f"Aim for {lo}–{hi} seconds", className="q-target")], className="q-actions"),
+        ], className="question-box")
+        n_now = min(state["main_done"] + 1, state["total"])
         progress = html.Div([
-            badge(f"Question {min(state['main_done'] + 1, state['total'])} of {state['total']}"), " ",
-            badge(f"{state['bank']}{' · ' + state['group'] if state['group'] else ''}", "ok"),
+            html.Div([
+                html.Span(f"Question {n_now} of {state['total']}", className="progress-label"),
+                badge(f"{state['bank']}{' · ' + state['group'] if state['group'] else ''}", "ok"),
+            ], className="progress-head"),
+            html.Div(html.Div(style={"width": f"{100 * (n_now - 1) / state['total']:.0f}%"}, className="progress-fill"),
+                     className="progress-track"),
             html.Div(alert("Prep note: " + state["prep_note"], "info"), style={"marginTop": "10px"}) if state["prep_note"] else None,
         ])
         if state["show_fb"] and state["turns"]:

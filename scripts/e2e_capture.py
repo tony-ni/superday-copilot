@@ -60,6 +60,34 @@ ANSWERS = {
 }
 
 
+FAKE_SPEECH = r"""
+class FakeRecognition {
+  constructor() { this._t = []; this._i = 0; }
+  _emit(text, isFinal) {
+    const res = [{ transcript: text }]; res.isFinal = isFinal;
+    const results = []; results[this._i] = res; results.length = this._i + 1;
+    this.onresult && this.onresult({ resultIndex: this._i, results });
+    if (isFinal) this._i += 1;
+  }
+  start() {
+    const parts = [
+      [2000, "Equity value falls by 100 because the shares are bought back."],
+      [6000, "Debt rises by 100."],
+      [11000, "Enterprise value equals equity value plus debt minus cash, so the two changes offset,"],
+      [17000, "and um enterprise value is unchanged, ignoring fees and any market reaction."],
+      [22000, "Changing the capital structure doesn't change the value of the operating business."],
+    ];
+    parts.forEach(([ms, text]) => {
+      this._t.push(setTimeout(() => this._emit(text.split(" ").slice(0, 4).join(" "), false), ms - 900));
+      this._t.push(setTimeout(() => this._emit(text, true), ms));
+    });
+  }
+  stop() { this._t.forEach(clearTimeout); setTimeout(() => this.onend && this.onend(), 50); }
+}
+window.SpeechRecognition = FakeRecognition; window.webkitSpeechRecognition = FakeRecognition;
+"""
+
+
 def answer_for(qid: str, follow_up: bool) -> str:
     if follow_up:
         ref = BANK[qid]["reference_answer"].split(". ")
@@ -82,7 +110,7 @@ def wait_text(page, selector, timeout=120):
 
 def go(page, path):
     page.goto(BASE + path)
-    page.wait_for_selector("h1.page-title", timeout=30_000)
+    page.wait_for_selector(".page-enter", timeout=30_000)
     time.sleep(1)
 
 
@@ -152,6 +180,30 @@ def main(only: set[str]):
             wait_text(page, "#tech-feedback .feedback")
             time.sleep(1)
             shot(page, "06_technical_feedback", full=True)
+
+        if not only or "voice" in only:
+            # Headless Chromium has no microphone, so a fake recognizer "speaks" a realistic answer at ~2 words/sec.
+            vpage = browser.new_page(viewport={"width": 1440, "height": 950})
+            vpage.set_default_timeout(150_000)
+            vpage.add_init_script(FAKE_SPEECH)
+            go(vpage, "/technicals")
+            vpage.click("#tech-cat")
+            vpage.get_by_role("option", name="Enterprise Value").click()
+            time.sleep(0.8)
+            vpage.click("#tech-qpick")
+            vpage.get_by_role("option", name="EV-3", exact=False).first.click()
+            time.sleep(0.5)
+            vpage.click("#tech-new")
+            wait_text(vpage, "#tech-question .question-box")
+            vpage.click("#tech-mic")
+            time.sleep(12)
+            shot(vpage, "06b_voice_recording")
+            time.sleep(13)
+            vpage.click("#tech-grade")
+            wait_text(vpage, "#tech-feedback .feedback")
+            time.sleep(1)
+            shot(vpage, "06c_voice_feedback", full=True)
+            vpage.close()
 
         if not only or "story" in only:
             go(page, "/behavioral")

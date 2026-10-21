@@ -13,9 +13,11 @@ Deal Analyst turns a pasted press release into deal facts and talking points. Ev
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, timedelta
 
 from . import config, db, tools
+from .delivery import for_grader
 from .llm import BOOL, INT, STR, AIError, arr, obj, run_agent
 from .safety import (check_claim, clamp_score, clip, detect_injection, mask_pii, quarantine, unsupported_numbers,
                      wrap_untrusted)
@@ -93,8 +95,10 @@ GRADE_SCHEMA = obj(
 )
 
 
-def grade_answer(question: dict, answer: str, run_id: str, asked_as: str | None = None) -> dict:
-    """Grade one answer. `question` is a bank entry; `asked_as` is the wording actually asked."""
+def grade_answer(question: dict, answer: str, run_id: str, asked_as: str | None = None,
+                 delivery: dict | None = None) -> dict:
+    """Grade one answer. `question` is a bank entry; `asked_as` is the wording actually asked;
+    `delivery` holds measured stats when the answer was spoken (see delivery.py)."""
     answer, was_cut = clip(answer, config.MAX_ANSWER_CHARS)
     if len(answer.split()) < 3:
         return _empty_grade("The answer was empty or too short to grade.")
@@ -114,6 +118,7 @@ def grade_answer(question: dict, answer: str, run_id: str, asked_as: str | None 
         "Key points:\n- " + "\n- ".join(question["key_points"]),
         f"Reference answer: {question['reference_answer']}",
         f"Note: answer was cut to {config.MAX_ANSWER_CHARS} characters." if was_cut else "",
+        f"Delivery: {for_grader(delivery)}",
         wrap_untrusted("candidate_answer", answer),
     ])
     g = run_agent(agent="grader", run_id=run_id, instructions=GRADER_PROMPT, user_input=user_input,
@@ -121,6 +126,7 @@ def grade_answer(question: dict, answer: str, run_id: str, asked_as: str | None 
     for k in ("substance", "structure", "delivery"):
         g[k] = clamp_score(g[k])
     g["overall"] = clamp_score((g["substance"] * 2 + g["structure"] + g["delivery"]) / 4)
+    g["delivery_stats"] = delivery
     if g["substance"] <= 2:
         # A wrong answer can't be rescued by polished delivery.
         g["overall"] = min(g["overall"], g["substance"])
@@ -329,7 +335,8 @@ Hard rules:
 - Use only facts from the candidate's resume and the coffee-chat notes provided (via the get_coffee_chats tool or
   the input). Never invent employers, numbers, deals, achievements or bankers. If something useful is missing,
   put a placeholder in square brackets such as [your result] and mention it in tips.
-- When you use something a banker said, attribute it naturally ("When I spoke with Priya on the consumer team...")
+- When you use something a banker said, attribute it naturally ("When I spoke with Priya on the consumer team...").
+  Never use he/him/she/her/they for a banker; repeat their name or say "the team" instead
   and list it in sources_used with the exact contact name as given in the notes.
 - Answers are meant to be spoken: short sentences, first person, no bullet points, 60-120 seconds
   (about 150-280 words) unless told otherwise.
@@ -372,13 +379,24 @@ def draft_story(kind: str, bank: str, run_id: str) -> dict:
     _, question = STORY_KINDS[kind]
     question = question.format(bank=bank or "our firm")
     user_input = (f"Write my spoken answer to: \"{question}\"\nTarget bank: {bank or 'none chosen'}\n"
-                  f"Call get_coffee_chats for the target bank (or '' for all) before writing.\n\n{_resume_block()}")
+                  f"Call get_coffee_chats for the target bank (or '' for all) before writing.\n{PRONOUN_RULE}\n\n"
+                  f"{_resume_block()}")
     out = run_agent(
         agent="story_coach", run_id=run_id, instructions=COACH_PROMPT, user_input=user_input,
         schema=STORY_SCHEMA, schema_name="story", tools=[tools.SPEC_GET_COFFEE_CHATS],
         tool_impls={"get_coffee_chats": tools.get_coffee_chats},
     )
-    return _check_sources(out, run_id)
+    out = _check_sources(out, run_id)
+    if _GENDERED.search(out.get("answer", "")):
+        # The coach can't know a banker's pronouns from a name; tell the candidate to check.
+        out["tips"] = ["Check the pronouns used for the bankers you mention; the coach can't know them from a name."] + out["tips"]
+        db.log_trace(run_id, "guard", "guard", "pronoun_check", "Gendered pronoun found in draft")
+    return out
+
+
+PRONOUN_RULE = ("Refer to each banker by name or role every time (e.g., \"Priya\", \"the VP\"). Do not use he, she, him, "
+                "her, his or hers for anyone: their pronouns are unknown.")
+_GENDERED = re.compile(r"\b(she|he|her|him|his|hers)\b", re.IGNORECASE)
 
 
 def _check_sources(out: dict, run_id: str) -> dict:
@@ -396,6 +414,7 @@ def coffee_chat_prep(chat: dict, run_id: str) -> dict:
     user_input = (
         f"Prepare me for a coffee chat with {chat['contact']} ({chat.get('title') or 'banker'}, {chat['bank']}, "
         f"{chat.get('grp') or 'group unknown'}).\nCall get_coffee_chats for {chat['bank']} to see my other notes on this bank.\n"
+        f"{PRONOUN_RULE}\n"
         f"{wrap_untrusted('coffee_chat_notes', notes)}\n\n{_resume_block()}"
     )
     return run_agent(agent="story_coach", run_id=run_id, instructions=COACH_PROMPT, user_input=user_input,
@@ -406,7 +425,7 @@ def coffee_chat_prep(chat: dict, run_id: str) -> dict:
 def thank_you_note(chat: dict, run_id: str) -> dict:
     notes = quarantine(mask_pii(chat.get("notes") or ""))[0]
     user_input = (f"Draft a thank-you email to {chat['contact']} ({chat.get('title') or ''}, {chat['bank']}) after our coffee chat.\n"
-                  f"{wrap_untrusted('coffee_chat_notes', notes)}\nMy name: {db.profile().get('name', '')}")
+                  f"{wrap_untrusted('coffee_chat_notes', notes)}\nMy name: {db.profile().get('name', '')}\n{PRONOUN_RULE}")
     return run_agent(agent="story_coach", run_id=run_id, instructions=COACH_PROMPT, user_input=user_input,
                      schema=THANK_YOU_SCHEMA, schema_name="thank_you", max_output_tokens=800)
 

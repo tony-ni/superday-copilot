@@ -7,7 +7,7 @@ import json
 from dash import Input, Output, State, callback, dcc, html
 
 from .. import agents, config, db, llm
-from ..ui import alert, badge, bullets, card, error_box, loading, page
+from ..ui import alert, badge, bullets, card, empty_state, error_box, icon, loading, page, page_icon
 
 SAMPLES = json.loads((config.DATA_DIR / "sample_deals.json").read_text(encoding="utf-8"))
 
@@ -17,6 +17,7 @@ def layout():
         "Deal Prep",
         "Prepare 'Tell me about a deal you've followed'. Every fact must quote the source, and a code fact-checker "
         "verifies each quote and number.",
+        page_icon("deal"),
         html.Div([
             card("Source",
                  html.Label("Load a sample (fictional) or paste a real press release / article", className="field"),
@@ -24,12 +25,13 @@ def layout():
                               placeholder="Load a sample..."),
                  dcc.Textarea(id="deal-text", style={"height": "330px", "marginTop": "10px"},
                               placeholder="Paste the full press release text here..."),
-                 html.Div([html.Button("Analyze deal", id="deal-btn", className="btn")], className="btn-row"),
+                 html.Div([html.Button([icon("spark"), " Analyze deal"], id="deal-btn", className="btn")], className="btn-row"),
                  html.Div("Only the text you paste is used. The analyst may not add facts from memory.", className="hint",
                           style={"marginTop": "8px"})),
-            html.Div([loading(html.Div(id="deal-out", children=card("Result", html.Div(
-                "Your deal brief will appear here: verified facts, rationale, risks, talking points and likely "
-                "interviewer questions.", className="empty"))))]),
+            html.Div([loading(html.Div(id="deal-out", children=card("Result", empty_state(
+                "deal", "Your deal brief will appear here",
+                "Verified facts, rationale, risks, 60-second talking points and likely interviewer questions."))),
+                "The Deal Analyst is reading the source; the fact-checker then verifies every quote…")]),
         ], className="grid grid-5-7"),
         card("Past analyses", _history()),
     )

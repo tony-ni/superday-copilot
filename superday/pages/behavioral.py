@@ -5,7 +5,7 @@ from __future__ import annotations
 from dash import Input, Output, State, callback, dcc, html, no_update
 
 from .. import agents, db, llm
-from ..ui import alert, badge, bullets, card, error_box, loading, page
+from ..ui import alert, badge, bullets, card, error_box, icon, loading, page, page_icon
 from . import practice
 from .mock import bank_options
 
@@ -23,6 +23,7 @@ def layout():
     return page(
         "Behavioral & Story",
         "Turn your real experience and what bankers told you into answers that only you could give.",
+        page_icon("chat"),
         html.Div([
             html.Div([
                 card("Story Coach",
@@ -32,10 +33,10 @@ def layout():
                          html.Div([html.Label("Target bank", className="field"),
                                    dcc.Dropdown(banks, banks[0] if banks else None, id="story-bank")]),
                      ], className="grid grid-2"),
-                     html.Div([html.Button("Draft my answer", id="story-btn", className="btn")], className="btn-row"),
+                     html.Div([html.Button([icon("spark"), " Draft my answer"], id="story-btn", className="btn")], className="btn-row"),
                      html.Div("Uses only your resume and your coffee-chat notes. Every banker it cites is checked "
                               "against your tracker.", className="hint", style={"marginTop": "8px"})),
-                loading(html.Div(id="story-out")),
+                loading(html.Div(id="story-out"), "The Story Coach is reading your resume and coffee-chat notes…"),
             ]),
             html.Div([
                 card("Your resume (used by the Story Coach)",
@@ -72,7 +73,8 @@ def draft(_, kind, bank):
         html.Div([html.H4("Where each point came from"), html.Ul(sources) if sources else html.Div("No sources listed.", className="empty")],
                  className="feedback"),
         html.Div([html.H4("Coach tips"), bullets(out["tips"])], className="feedback"),
-        dcc.Clipboard(content=out["answer"], title="Copy answer", style={"marginTop": "8px", "color": "#00356b"}),
+        html.Div([dcc.Clipboard(content=out["answer"], title="Copy answer", className="copy-btn"),
+                  html.Span("Copy answer", className="hint")], className="copy-row"),
     )
 
 

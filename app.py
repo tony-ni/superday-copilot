@@ -10,20 +10,21 @@ import os
 from dash import Dash, Input, Output, dcc, html
 
 from superday import config, db
+from superday.ui import icon
 
 db.init()
 
 from superday.pages import applications, behavioral, chats, dashboard, deals, mock, technicals, usage  # noqa: E402
 
 PAGES = {
-    "/": ("Dashboard", dashboard),
-    "/mock": ("Mock Interview", mock),
-    "/technicals": ("Technicals", technicals),
-    "/behavioral": ("Behavioral & Story", behavioral),
-    "/deals": ("Deal Prep", deals),
-    "/chats": ("Coffee Chats", chats),
-    "/applications": ("Applications", applications),
-    "/usage": ("Usage & Safety", usage),
+    "/": ("Dashboard", dashboard, "home"),
+    "/mock": ("Mock Interview", mock, "mic"),
+    "/technicals": ("Technicals", technicals, "calc"),
+    "/behavioral": ("Behavioral & Story", behavioral, "chat"),
+    "/deals": ("Deal Prep", deals, "deal"),
+    "/chats": ("Coffee Chats", chats, "coffee"),
+    "/applications": ("Applications", applications, "list"),
+    "/usage": ("Usage & Safety", usage, "shield"),
 }
 NAV_SECTIONS = [("Plan", ["/"]), ("Prepare", ["/mock", "/technicals", "/behavioral", "/deals"]),
                 ("Track", ["/chats", "/applications"]), ("Admin", ["/usage"])]
@@ -36,34 +37,48 @@ def sidebar(path):
     items = []
     for section, paths in NAV_SECTIONS:
         items.append(html.Div(section, className="nav-section"))
-        items += [dcc.Link(PAGES[p][0], href=p, className="nav-link" + (" active" if p == path else "")) for p in paths]
+        items += [dcc.Link([icon(PAGES[p][2]), PAGES[p][0]], href=p,
+                           className="nav-link" + (" active" if p == path else "")) for p in paths]
+    prof = db.profile()
+    items.append(html.Div([html.B(prof.get("name", "Candidate").split(" (")[0]),
+                           prof.get("target_role", "IB Summer Associate recruiting")], className="side-foot"))
     return items
+
+
+def initials(name: str) -> str:
+    parts = [w for w in name.split(" (")[0].split() if w[:1].isalpha()]
+    return "".join(w[0] for w in parts[:2]).upper() or "SC"
 
 
 def topbar():
     key = config.provider()
-    status = f"AI: {config.MODEL} via {key[0].title()}" if key else "AI offline: add PORTKEY_API_KEY to .env"
+    status = html.Span([html.Span(className="dot" + ("" if key else " off")),
+                        f"{config.MODEL} via {key[0].title()}" if key else "AI offline: add PORTKEY_API_KEY to .env"],
+                       className="pill", title="AI model status")
     return html.Div([
-        html.Div([html.Div("S", className="brand-mark"), "Superday Copilot", html.Small("IB recruiting, end to end")],
-                 className="brand"),
-        html.Div([html.Span(status), html.Span(id="topbar-spend")], className="topbar-meta"),
+        dcc.Link([html.Div("S", className="brand-mark"), "Superday Copilot", html.Small("IB recruiting, end to end")],
+                 href="/", className="brand"),
+        html.Div([status, html.Span(id="topbar-spend", className="pill spend", title="AI spend today"),
+                  html.Div(id="topbar-avatar", className="avatar")], className="topbar-meta"),
     ], className="topbar")
 
 
 app.layout = html.Div([
     dcc.Location(id="url"),
     topbar(),
-    html.Div([html.Nav(id="sidebar", className="sidebar"), html.Main(id="page", className="content")], className="shell"),
+    html.Div([html.Nav(id="sidebar", className="sidebar", **{"aria-label": "Main"}),
+              html.Main(id="page", className="content")], className="shell"),
 ])
 
 
 @app.callback(Output("page", "children"), Output("sidebar", "children"), Output("topbar-spend", "children"),
-              Input("url", "pathname"), Input("url", "search"))
+              Output("topbar-avatar", "children"), Input("url", "pathname"), Input("url", "search"))
 def route(path, search):
     path = path if path in PAGES else "/"
     module = PAGES[path][1]
     body = module.layout(search or "") if path == "/usage" else module.layout()
-    return body, sidebar(path), f"Spend today: ${db.spend_today():.4f}"
+    return (body, sidebar(path), [icon("chart"), f" ${db.spend_today():.4f} today"],
+            initials(db.profile().get("name", "")))
 
 
 if __name__ == "__main__":

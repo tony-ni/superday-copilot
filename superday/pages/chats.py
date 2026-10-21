@@ -7,7 +7,7 @@ from datetime import date
 from dash import Input, Output, State, callback, dash_table, dcc, html, no_update
 
 from .. import agents, db, llm
-from ..ui import alert, bullets, card, error_box, loading, page
+from ..ui import alert, bullets, card, error_box, icon, loading, page, page_icon
 
 COLS = [("contact", "Contact"), ("bank", "Bank"), ("grp", "Group"), ("title", "Title"), ("chat_date", "Date"),
         ("thank_you", "Thank-you sent"), ("notes", "Notes")]
@@ -24,6 +24,7 @@ def layout():
     return page(
         "Coffee Chats",
         "Log every conversation. Your notes power bank-specific mock interviews and 'Why us?' answers.",
+        page_icon("coffee"),
         card("Add a coffee chat",
              html.Div([
                  html.Div([html.Label("Contact name", className="field"), dcc.Input(id="cc-contact", type="text")]),
@@ -33,7 +34,7 @@ def layout():
              ], className="grid grid-4"),
              html.Div([
                  html.Div([html.Label("Date", className="field"),
-                           dcc.DatePickerSingle(id="cc-date", date=date.today().isoformat(), display_format="YYYY-MM-DD")]),
+                           dcc.DatePickerSingle(className="date-field", id="cc-date", date=date.today().isoformat(), display_format="YYYY-MM-DD")]),
                  html.Div([html.Label("Notes: what did you learn? what advice did they give?", className="field"),
                            dcc.Textarea(id="cc-notes", style={"height": "80px"})]),
              ], className="grid grid-5-7", style={"gridTemplateColumns": "1fr 3fr"}),
@@ -50,12 +51,12 @@ def layout():
                                           "color": "#a4262c", "fontWeight": "600"}],
              ),
              html.Div([
-                 html.Button("Prep me for this chat", id="cc-prep", className="btn"),
+                 html.Button([icon("spark"), " Prep me for this chat"], id="cc-prep", className="btn"),
                  html.Button("Draft thank-you note", id="cc-ty", className="btn btn-secondary"),
                  html.Button("Mark thank-you sent", id="cc-sent", className="btn btn-secondary"),
                  html.Button("Delete", id="cc-del", className="btn btn-danger"),
              ], className="btn-row")),
-        loading(html.Div(id="cc-out")),
+        loading(html.Div(id="cc-out"), "The Story Coach is preparing your draft…"),
     )
 
 
@@ -104,6 +105,7 @@ def act(_p, _t, _s, _d, data, selected):
         return card(f"Thank-you draft for {chat['contact']}",
                     alert("Draft only: Superday Copilot never sends email. Review, edit and send it yourself.", "info"),
                     html.Div(text, className="model-answer", style={"whiteSpace": "pre-wrap"}),
-                    dcc.Clipboard(content=text, title="Copy", style={"marginTop": "8px", "color": "#00356b"})), no_update, no_update
+                    html.Div([dcc.Clipboard(content=text, title="Copy email", className="copy-btn"),
+                              html.Span("Copy email", className="hint")], className="copy-row")), no_update, no_update
     except llm.AIError as exc:
         return error_box(exc), no_update, no_update

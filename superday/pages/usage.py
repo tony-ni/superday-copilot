@@ -7,7 +7,7 @@ import json
 from dash import Input, Output, State, callback, dcc, html
 
 from .. import config, db
-from ..ui import alert, badge, card, kpi, page
+from ..ui import alert, badge, card, kpi, page, page_icon
 
 
 def layout(search: str = ""):
@@ -40,6 +40,7 @@ def layout(search: str = ""):
     return page(
         "Usage & Safety",
         "Real token counts from every gpt-6-luna call, step-by-step agent traces and every time a safety guard fired.",
+        page_icon("shield"),
         html.Div([
             kpi("Agent runs", f"{tot['runs']:,}", f"{tot['calls']:,} model calls"),
             kpi("Tokens", f"{(tot['inp'] + tot['outp']):,}", f"{tot['inp']:,} in · {tot['outp']:,} out"),

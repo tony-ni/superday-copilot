@@ -9,21 +9,44 @@ YALE_2 = "#286dc0"
 YALE_3 = "#63aaff"
 
 
-def page(title: str, subtitle: str, *children):
-    return html.Div([html.H1(title, className="page-title"), html.P(subtitle, className="page-sub"), *children])
+def icon(name: str, cls: str = ""):
+    """Line icon drawn with a CSS mask (see .ico-* in style.css); inherits the text color."""
+    return html.Span(className=f"ico ico-{name} {cls}".strip(), **{"aria-hidden": "true"})
+
+
+class _PageIcon(str):
+    """Marker passed positionally to page() to choose the header icon."""
+
+
+def page_icon(name: str) -> _PageIcon:
+    return _PageIcon(name)
+
+
+def page(title: str, subtitle: str, *children, icon_name: str | None = None):
+    for c in children:
+        if isinstance(c, _PageIcon):
+            icon_name = str(c)
+    children = tuple(c for c in children if not isinstance(c, _PageIcon))
+    head = html.Div([
+        html.Div(icon(icon_name), className="page-icon") if icon_name else None,
+        html.Div([html.H1(title, className="page-title"), html.P(subtitle, className="page-sub")]),
+    ], className="page-head")
+    return html.Div([head, *children], className="page-enter")
 
 
 def card(title, *children, **kw):
-    return html.Div([html.H3(title) if title else None, *children], className="card", **kw)
+    cls = kw.pop("className", "")
+    return html.Div([html.H3(title) if title else None, *children], className=f"card {cls}".strip(), **kw)
 
 
-def kpi(label, value, sub=""):
-    return html.Div([html.Div(label, className="kpi-label"), html.Div(value, className="kpi-value"),
-                     html.Div(sub, className="kpi-sub")], className="kpi")
+def kpi(label, value, sub="", icon_name=None):
+    return html.Div([
+        html.Div([icon(icon_name) if icon_name else None, html.Span(label)], className="kpi-label"),
+        html.Div(value, className="kpi-value"), html.Div(sub, className="kpi-sub")], className="kpi")
 
 
 def alert(text, level="info"):
-    return html.Div(text, className=f"alert alert-{level}")
+    return html.Div(text, className=f"alert alert-{level}", role="status")
 
 
 def badge(text, kind="blue"):
@@ -45,17 +68,61 @@ def error_box(exc: Exception):
     return alert(f"{exc}", "danger")
 
 
+def empty_state(icon_name: str, title: str, text: str, action=None):
+    return html.Div([html.Div(icon(icon_name), className="empty-icon"), html.Div(title, className="empty-title"),
+                     html.Div(text, className="empty-text"), action], className="empty-state")
+
+
+def kbd(text):
+    return html.Kbd(text, className="kbd")
+
+
+def voice_controls(prefix: str, target: str):
+    """Mic button + live status line. Behavior lives in assets/voice.js."""
+    return html.Div([
+        html.Button("🎤 Answer by voice", id=f"{prefix}-mic", className="btn btn-voice", type="button",
+                    title="Speak your answer; it is transcribed into the box below",
+                    **{"data-voice-target": target, "data-voice-prefix": prefix}),
+        html.Span(id=f"{prefix}-voice-status", className="voice-status", **{"aria-live": "polite"}),
+    ], className="voice-bar")
+
+
+VOICE_NOTE = ("Voice uses your browser's speech recognition (Chrome or Edge). The browser's speech service turns your "
+              "audio into text; Superday Copilot never records or stores audio.")
+
+
+def delivery_strip(stats: dict | None):
+    if not stats:
+        return None
+    lo, hi = stats["target"]
+    m, s = divmod(stats["seconds"], 60)
+    length_kind = {"on target": "ok", "short": "warn", "long": "warn"}[stats["length"]]
+    pace_kind = {"steady": "ok", "slow": "warn", "fast": "warn"}[stats["pace"]]
+    filler_kind = "ok" if stats["fillers"] <= 2 else "warn"
+    return html.Div([
+        html.Div([icon("mic"), " Spoken delivery"], className="delivery-title"),
+        html.Div([
+            html.Div([html.B(f"{m}:{s:02d}"), html.Span(f"target {lo}–{hi}s"), badge(stats["length"], length_kind)], className="dstat"),
+            html.Div([html.B(f"{stats['wpm']} wpm"), html.Span("pace"), badge(stats["pace"], pace_kind)], className="dstat"),
+            html.Div([html.B(str(stats["fillers"])), html.Span("filler words" + (f": {', '.join(stats['filler_words'])}" if stats["filler_words"] else "")),
+                      badge("clean" if stats["fillers"] <= 2 else "reduce", filler_kind)], className="dstat"),
+            html.Div([html.B(str(stats["words"])), html.Span("words")], className="dstat"),
+        ], className="dstats"),
+    ], className="delivery")
+
+
 def feedback_panel(grade: dict, reference: dict | None = None, show_model=True):
     """Render a Grader result."""
     parts = [
         html.Div([
             score_circle(grade["overall"]),
             html.Div([html.Div("Overall score", className="kpi-label"),
-                      html.Div(grade["verdict"], style={"fontWeight": 600})], style={"flex": 1}),
-        ], style={"display": "flex", "gap": "14px", "alignItems": "center"}),
-        html.Div([html.Div([html.B(f"{grade[k]}/5"), f" {label}"], className="dim")
+                      html.Div(grade["verdict"], className="verdict")], style={"flex": 1}),
+        ], className="score-head"),
+        html.Div([html.Div([html.B(f"{grade[k]}/5"), f" {label}"], className=f"dim dim-{grade[k]}")
                   for k, label in (("substance", "Substance"), ("structure", "Structure"), ("delivery", "Delivery"))],
                  className="dim-scores"),
+        delivery_strip(grade.get("delivery_stats")),
     ]
     if grade.get("injection_attempt"):
         where = ("Blocked by the input scanner before it reached the AI (no tokens spent)"
@@ -66,8 +133,10 @@ def feedback_panel(grade: dict, reference: dict | None = None, show_model=True):
         parts.append(html.Div([html.H4("What to do"), bullets(grade.get("improvements"))]))
         return html.Div(parts, className="feedback")
     parts += [
-        html.Div([html.H4("What worked"), bullets(grade.get("strengths"), "Nothing yet.")]),
-        html.Div([html.H4("How to improve"), bullets(grade.get("improvements"))]),
+        html.Div([
+            html.Div([html.H4([icon("check"), " What worked"]), bullets(grade.get("strengths"), "Nothing yet.")], className="fb-col fb-good"),
+            html.Div([html.H4([icon("arrow-up"), " How to improve"]), bullets(grade.get("improvements"))], className="fb-col fb-fix"),
+        ], className="fb-grid"),
         html.Div([html.H4("Key points you missed"), bullets(grade.get("missed_key_points"), "None: you covered them all.")]),
     ]
     if show_model and grade.get("model_answer"):
@@ -78,8 +147,12 @@ def feedback_panel(grade: dict, reference: dict | None = None, show_model=True):
     return html.Div(parts, className="feedback")
 
 
-def loading(child, **kw):
-    return dcc.Loading(child, type="dot", color=YALE, **kw)
+def loading(child, text: str | None = None, **kw):
+    """Spinner with a plain-language message about what the agent is doing."""
+    spinner = html.Div([html.Div(className="spinner"), html.Div(text or "Working…", className="spinner-text")],
+                       className="spinner-wrap")
+    return dcc.Loading(child, custom_spinner=spinner, delay_show=150, overlay_style={"visibility": "visible", "opacity": .35},
+                       **kw)
 
 
 def fig_layout(fig, height=300):

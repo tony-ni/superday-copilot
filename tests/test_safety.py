@@ -170,6 +170,30 @@ class EnvLookup(unittest.TestCase):
             self.assertEqual(used[0], repo / ".env")
 
 
+class DeliveryStats(unittest.TestCase):
+    def test_typed_answer_has_no_stats(self):
+        from superday.delivery import delivery_stats
+        self.assertIsNone(delivery_stats("some typed answer", None, "EV-3"))
+        self.assertIsNone(delivery_stats("some typed answer", {"seconds": 0}, "EV-3"))
+
+    def test_spoken_answer_stats(self):
+        from superday.delivery import delivery_stats, for_grader
+        answer = "um so equity value falls by 100 and uh debt rises by 100 you know so EV is unchanged " * 3
+        st = delivery_stats(answer, {"seconds": 40}, "EV-3")
+        self.assertEqual(st["target"], [30, 60])
+        self.assertEqual(st["length"], "on target")
+        self.assertEqual(st["words"], len(answer.split()))
+        self.assertEqual(st["wpm"], round(st["words"] / (40 / 60)))
+        self.assertEqual(st["fillers"], 9)  # um, uh, "you know" x3
+        self.assertIn("40 s", for_grader(st))
+
+    def test_behavioral_questions_get_longer_target(self):
+        from superday.delivery import delivery_stats
+        st = delivery_stats("word " * 50, {"seconds": 30}, "BEH-3")
+        self.assertEqual(st["target"], [60, 120])
+        self.assertEqual(st["length"], "short")
+
+
 class QuestionBank(unittest.TestCase):
     def test_bank_is_well_formed(self):
         ids = [q["id"] for q in tools.question_bank()]
